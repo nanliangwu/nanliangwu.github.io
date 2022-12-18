@@ -1,0 +1,272 @@
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1">
+  
+  
+  
+  <title>
+    
+    深夜程猿
+  </title>
+  <!-- Icon -->
+  
+    <link rel="shortcut icon" href="/favicon.ico">
+    
+  
+<link rel="stylesheet" href="/css/style.css">
+
+  
+  
+<link rel="stylesheet" href="/fancybox/jquery.fancybox.min.css">
+
+  
+  
+<script src="/js/pace.min.js"></script>
+
+<meta name="generator" content="Hexo 6.3.0"></head>
+
+<body>
+  <main class="content">
+    <section class="jumbotron">
+  <div class="video">
+    
+    <div class="video-frame">
+      <img src="/images/ocean/overlay-hero.png" alt="Decorative image frame">
+    </div>
+    
+    <div class="video-media">
+      <video playsinline="" autoplay="" loop="" muted="" data-autoplay="" poster="/images/ocean/ocean.png"
+        x5-video-player-type="h5">
+        <source src="/images/ocean/ocean.mp4" type="video/mp4">
+        <source src="/images/ocean/ocean.ogv" type="video/ogg">
+        <source src="/images/ocean/ocean.webm" type="video/webm">
+        <p>Your user agent does not support the HTML5 Video element.</p>
+      </video>
+      <div class="video-overlay"></div>
+    </div>
+    <div class="video-inner text-center text-white">
+      <h1><a href="/">深夜程猿</a></h1>
+      <p>因上努力，果上随缘</p>
+      <div><img src="/images/hexo-inverted.svg" class="brand" alt="深夜程猿"></div>
+    </div>
+    <div class="video-learn-more">
+      <a class="anchor" href="#landingpage"><i class="fe fe-mouse"></i></a>
+    </div>
+  </div>
+</section>
+<div id="landingpage">
+  <section class="outer">
+  <article class="articles">
+    
+    <h1 class="page-type-title"></h1>
+    
+    
+    <article id="post-深入理解一致哈希算法思想" class="article article-type-post" itemscope
+  itemprop="blogPost" data-scroll-reveal>
+
+  <div class="article-inner">
+    
+    <header class="article-header">
+      
+  
+  <h2 class="article-title" itemprop="name">
+    <a href="/2022/12/18/%E6%B7%B1%E5%85%A5%E7%90%86%E8%A7%A3%E4%B8%80%E8%87%B4%E5%93%88%E5%B8%8C%E7%AE%97%E6%B3%95%E6%80%9D%E6%83%B3/">深入理解「一致哈希算法」思想</a>
+  </h2>
+  
+  
+
+    </header>
+    
+
+    
+    <div class="article-meta">
+      <a href="/2022/12/18/%E6%B7%B1%E5%85%A5%E7%90%86%E8%A7%A3%E4%B8%80%E8%87%B4%E5%93%88%E5%B8%8C%E7%AE%97%E6%B3%95%E6%80%9D%E6%83%B3/" class="article-date">
+  <time datetime="2022-12-18T08:37:56.000Z" itemprop="datePublished">2022-12-18</time>
+</a>
+      
+    </div>
+    
+
+    
+
+    <div class="article-entry" itemprop="articleBody">
+      
+      
+        
+      
+      
+        <p>在分布式系统中，为了提高系统的可用性，我们往往采用集群的方式部署服务。既然是集群部署，集群的扩缩容是无法避免的。</p>
+<p>在缓存场景中，我们希望同一个用户多次请求都落在同一个服务节点已提高缓存的命中率。在分布式存储中，我们希望对同一个数据的读写都落在同个存储节点以保证数据的正确读写。</p>
+<p>如何解决上述问题呢？</p>
+<h2 id="传统哈希算法的困境"><a href="#传统哈希算法的困境" class="headerlink" title="传统哈希算法的困境"></a>传统哈希算法的困境</h2><p>传统的哈希算法，可以根据哈希算法计算得到的值对集群节点数取模得出的值，决定应该选择哪个节点。</p>
+<p>我们假设当前集群有A（哈希取模为0）&#x2F; B（哈希取模为1）&#x2F; C（哈希取模为2）三个节点，哈希函数为h。有三条数据，id1，id2，id&#x3D;3。</p>
+<figure class="highlight shell"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br></pre></td><td class="code"><pre><span class="line">h(id1) % 3 = 99 % 3 = 0（落在A节点）</span><br><span class="line"></span><br><span class="line">h(id2) % 3 =100 % 3 = 1（落在B节点）</span><br><span class="line"></span><br><span class="line">h(id3) % 3 = 101 % 3 = 2（落在C节点）</span><br></pre></td></tr></table></figure>
+
+<p>但是传统的哈希算法无法很好应对服务扩缩容后节点的变更带来大量数据迁移问题。如果集群扩容新增一个D节点，那么重新计算后的数据：</p>
+<figure class="highlight shell"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br></pre></td><td class="code"><pre><span class="line">h(id1) % 4 = 99 % 4 = 3（落在D节点，原来在A节点）</span><br><span class="line"></span><br><span class="line">h(id2) % 4 =100 % 4 = 0（落在A节点，原来在B节点）</span><br><span class="line"></span><br><span class="line">h(id3) % 4 = 101 % 4 = 1（落在B节点，原来在C节点）</span><br></pre></td></tr></table></figure>
+
+<p>这样集群新增一个节点后，所有的数据经过哈希计算后都不在原来的节点了。如果是缩容减少一个节点，也会导致数据失效，具体情况你可自行计算。</p>
+<p>也就是说使用传统的哈希算法做数据分片，无法高效应对集群的扩缩容。这时候<strong>一致性哈希算法</strong>可以高效解决集群扩缩容带来的数据失效问题。</p>
+<h2 id="一致哈希算法破局之道"><a href="#一致哈希算法破局之道" class="headerlink" title="一致哈希算法破局之道"></a>一致哈希算法破局之道</h2><p>维基百科对<a target="_blank" rel="noopener" href="https://zh.wikipedia.org/wiki/%E4%B8%80%E8%87%B4%E5%93%88%E5%B8%8C">一致性哈希</a>的定义：</p>
+<blockquote>
+<p>一致哈希是一种特殊的哈希算法。在使用一致哈希算法后，哈希表槽位数（大小）的改变平均只需要对K&#x2F;n 个关键字重新映射，其中K是关键字的数量，n是槽位数量。</p>
+</blockquote>
+<p><strong>比如我们集群有A&#x2F;B&#x2F;C三个节点，那么n&#x3D;3；有100条数据，那么K&#x3D;100。如果扩容一个节点，n&#x3D;4，K&#x2F;n &#x3D; 100&#x2F;4 &#x3D; 25，也就是说只需要对25条数据重新映射即可。在传统哈希算法中往往就要全部映射。</strong></p>
+<p>所以你看，传统哈希算法影响100条数据，需要对100条数据进行迁移。一致哈希算法只影响25条数据，只需要迁移25条数据。一致哈希算法应对集群扩缩容的效率更高。</p>
+<h3 id="传统哈希算法和一致哈希算法异同点"><a href="#传统哈希算法和一致哈希算法异同点" class="headerlink" title="传统哈希算法和一致哈希算法异同点"></a>传统哈希算法和一致哈希算法异同点</h3><table>
+<thead>
+<tr>
+<th>算法实现</th>
+<th>相同点</th>
+<th>不同点</th>
+</tr>
+</thead>
+<tbody><tr>
+<td>传统哈希算法</td>
+<td>有取模操作</td>
+<td>对集群节点数取模</td>
+</tr>
+<tr>
+<td>一致哈希算法</td>
+<td>有取模操作</td>
+<td>对固定数值取模，一般是的2的N次幂</td>
+</tr>
+</tbody></table>
+<p>比如一致哈希对2^32取模。</p>
+<h3 id="一致哈希算法寻址原理"><a href="#一致哈希算法寻址原理" class="headerlink" title="一致哈希算法寻址原理"></a>一致哈希算法寻址原理</h3><p>假设集群中有A&#x2F;B&#x2F;C三个节点，一致哈希算法为ch，对2^32取模。我们假设三个节点计算出来的值为：</p>
+<figure class="highlight shell"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br></pre></td><td class="code"><pre><span class="line">ch(A) = Ao</span><br><span class="line">ch(B) = Bo</span><br><span class="line">ch(C) = Co</span><br></pre></td></tr></table></figure>
+<p>A&#x2F;B&#x2F;C经过一致哈希算法计算后值分别为Ao&#x2F;Bo&#x2F;Co。假设有五条数据，通过一致哈希算法计算后值分别为D1～5。它们在哈希环上的分布位置如下图：<br><img src="/../images/%E4%B8%80%E8%87%B4%E5%93%88%E5%B8%8C%E7%AE%97%E6%B3%95%E6%95%B0%E6%8D%AE%E5%88%86%E5%B8%83%E5%9B%BE@V1.png" alt="一致哈希算法数据分布图@V1"></p>
+<p>数据经过一致哈希算法计算后，按照顺时针方向找到第一个节点。所以最终数据D1&#x2F;D5落在节点A，数据D2&#x2F;D3落在节点B，数据D4落在节点C。</p>
+<p>假设集群扩容一个节点D后，经过计算D分布位置为Do，如下图：<br><img src="/../images/%E4%B8%80%E8%87%B4%E5%93%88%E5%B8%8C%E7%AE%97%E6%B3%95%E6%95%B0%E6%8D%AE%E5%88%86%E5%B8%83@%E6%89%A9%E5%AE%B9%E8%8A%82%E7%82%B9.png" alt="一致哈希算法数据分布图@V1"></p>
+<p>这样最终需要发送变化的数据只有D2落在节点D，所以只需要把数据D2从节点B迁移到节点D即可。<br>K&#x2F;n &#x3D; 5&#x2F;4 &#x3D; 1.25，实际变更数据也只有一条。到这里，细心的你会发现如果Ao和Do之间刚好分布了很多数据，需要迁移的就很多了。</p>
+<p>其实我们上面图中举的例子比较简单，K&#x2F;n是一个在大量数据下的一个期望值，并非稳定的实际值。我们图中的例子给出的节点在哈希环上的分布也不均匀的。为了保证数据尽可能均匀，实际上我们还需要引入<strong>虚拟节点</strong>。</p>
+<p>所谓虚拟节点，就是我们设置一些逻辑的节点，但是这些逻辑上的节点都映射到某个实际的节点。如下图：</p>
+<p><img src="/../images/%E4%B8%80%E8%87%B4%E5%93%88%E5%B8%8C%E7%AE%97%E6%B3%95%E6%95%B0%E6%8D%AE%E5%88%86%E5%B8%83@%E8%99%9A%E6%8B%9F%E8%8A%82%E7%82%B9.png" alt="一致哈希算法数据分布图@V1"></p>
+<p>这样如果我们的虚拟节点足够多，我们就能做到让集群的节点均匀持有虚拟节点。这样就保证了每个节点的数据就比较均匀。这样后续集群扩缩容后就可以保证数据迁移量基本保持在K&#x2F;n附近。</p>
+<h3 id="一致性哈希算法使用场景"><a href="#一致性哈希算法使用场景" class="headerlink" title="一致性哈希算法使用场景"></a>一致性哈希算法使用场景</h3><p>一致哈希算法一般用于分布式存储（比如Redis的分片模式）、服务的一致哈希路由寻址（比如本地缓存&#x2F;有状态的请求）等。</p>
+
+      
+    </div>
+    <footer class="article-footer">
+      <a data-url="https://nanliangwu.github.io/2022/12/18/%E6%B7%B1%E5%85%A5%E7%90%86%E8%A7%A3%E4%B8%80%E8%87%B4%E5%93%88%E5%B8%8C%E7%AE%97%E6%B3%95%E6%80%9D%E6%83%B3/" data-id="clbtike9m00002aq0bror9nq7" class="article-share-link">
+        分享
+      </a>
+      
+<ul class="article-tag-list" itemprop="keywords"><li class="article-tag-list-item"><a class="article-tag-list-link" href="/tags/%E4%B8%80%E8%87%B4%E6%80%A7%E5%93%88%E5%B8%8C/" rel="tag">一致性哈希</a></li><li class="article-tag-list-item"><a class="article-tag-list-link" href="/tags/%E5%88%86%E5%B8%83%E5%BC%8F%E7%AE%97%E6%B3%95/" rel="tag">分布式算法</a></li></ul>
+
+    </footer>
+
+  </div>
+
+  
+
+  
+
+</article>
+    
+  </article>
+  
+
+  
+</section>
+</div>
+    <footer class="footer">
+  <div class="outer">
+    <ul class="list-inline">
+      <li>深夜程猿 &copy; 2022</li>
+      
+        <li>
+          
+            <a href="https://beian.miit.gov.cn/" target="_blank"></a>
+            
+        </li>
+      
+      <li>Powered by <a href="http://hexo.io/" target="_blank">Hexo</a></li>
+      <li>theme  <a target="_blank" rel="noopener" href="https://github.com/zhwangart/hexo-theme-ocean">Ocean</a></li>
+    </ul>
+  </div>
+</footer>
+
+  </main>
+  <aside class="sidebar">
+    <button class="navbar-toggle"></button>
+<nav class="navbar">
+  
+  <div class="logo">
+    <a href="/"><img src="/images/hexo.svg" alt="深夜程猿"></a>
+  </div>
+  
+  <ul class="nav nav-main">
+    
+    <li class="nav-item">
+      <a class="nav-item-link" href="/">首页</a>
+    </li>
+    
+    <li class="nav-item">
+      <a class="nav-item-link" href="/archives">存档</a>
+    </li>
+    
+    <li class="nav-item">
+      <a class="nav-item-link" href="/about">关于</a>
+    </li>
+    
+    <li class="nav-item">
+      <a class="nav-item-link nav-item-search" title="搜索">
+        <i class="fe fe-search"></i>
+        搜索
+      </a>
+    </li>
+  </ul>
+</nav>
+<nav class="navbar navbar-bottom">
+  <ul class="nav">
+    <li class="nav-item">
+      <div class="totop" id="totop">
+  <i class="fe fe-rocket"></i>
+</div>
+    </li>
+    <li class="nav-item">
+      
+      <a class="nav-item-link" target="_blank" href="/atom.xml" title="RSS Feed">
+        <i class="fe fe-feed"></i>
+      </a>
+      
+    </li>
+  </ul>
+</nav>
+<div class="search-form-wrap">
+  <div class="local-search local-search-plugin">
+  <input type="search" id="local-search-input" class="local-search-input" placeholder="Search...">
+  <div id="local-search-result" class="local-search-result"></div>
+</div>
+</div>
+  </aside>
+  
+<script src="/js/jquery-2.0.3.min.js"></script>
+
+
+<script src="/js/jquery.justifiedGallery.min.js"></script>
+
+
+<script src="/js/lazyload.min.js"></script>
+
+
+<script src="/js/busuanzi-2.3.pure.min.js"></script>
+
+
+
+<script src="/fancybox/jquery.fancybox.min.js"></script>
+
+
+
+
+
+
+<script src="/js/ocean.js"></script>
+
+</body>
+
+</html>
